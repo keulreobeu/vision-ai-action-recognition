@@ -1,0 +1,9 @@
+services:
+  doc-automation:
+    build: .
+    container_name: doc-automation
+    volumes:
+      - ./input:/workspace/input
+      - ./output:/workspace/output
+      - ./templates:/workspace/templates
+    command: python app/main.py
