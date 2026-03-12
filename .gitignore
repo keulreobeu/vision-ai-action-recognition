@@ -38,6 +38,8 @@ Backup/
 *.json
 *.npz
 *.npy
+*.txt
+*.xml
 
 #########################
 # Models
