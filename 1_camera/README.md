@@ -22,15 +22,3 @@ Raspberry Pi에 연결된 카메라를 이용해 작업 영상을 촬영하고, 
 
 이 코드는 **Windows가 아닌 Raspberry Pi 환경에서 실행한 코드**입니다.
 
-예상 실행 환경:
-- Raspberry Pi
-- Raspberry Pi OS
-- Python 3.12
-- OpenCV
-- 연결된 카메라 장치
-- 키 입력 또는 간단한 인터페이스를 통한 이벤트 기록
-
-필요 라이브러리 예시:
-
-```bash
-pip install opencv-python pandas
