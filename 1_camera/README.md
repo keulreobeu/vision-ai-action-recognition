@@ -22,3 +22,7 @@ Raspberry Pi에 연결된 카메라를 이용해 작업 영상을 촬영하고, 
 
 이 코드는 **Windows가 아닌 Raspberry Pi 환경에서 실행한 코드**입니다.
 
+---
+## 3. 사용 라이브러리
+Python 3.12
+OpenCV
