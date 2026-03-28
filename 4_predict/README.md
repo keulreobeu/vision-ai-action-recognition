@@ -1,60 +1,84 @@
 # 4_predict
 
-학습된 모델을 기반으로 예측을 수행하고, 결과를 후처리 및 평가하는 폴더입니다.
+학습된 모델 산출물을 이용해 테스트 프레임을 예측하고, TCN과 YOLO 결과를 결합한 뒤 프레임 단위 성능을 확인하는 단계입니다. 기존 노트북은 [`legacy`](G:\GitProjects\sessac_project\4_predict\legacy)로 옮기고, 현재는 실행용 스크립트 기준으로 정리했습니다.
 
----
+## 구성 파일
 
-## 1. 역할
+- [`predict_paths.py`](G:\GitProjects\sessac_project\4_predict\predict_paths.py)
+- [`predict_workflow.py`](G:\GitProjects\sessac_project\4_predict\predict_workflow.py)
+- [`01_run_yolo_state_prediction.py`](G:\GitProjects\sessac_project\4_predict\01_run_yolo_state_prediction.py)
+- [`02_fuse_tcn_and_yolo.py`](G:\GitProjects\sessac_project\4_predict\02_fuse_tcn_and_yolo.py)
+- [`03_score_predictions.py`](G:\GitProjects\sessac_project\4_predict\03_score_predictions.py)
 
-이 폴더는 모델 추론과 결과 해석 단계를 담당합니다.
+## 기본 경로
 
-주요 기능:
-- 테스트 데이터 예측
-- 프레임 단위 결과 생성
-- TCN / YOLO 결과 결합
-- 이벤트 단위 후처리
-- 성능 평가
+- 테스트 프레임: `yolo/test_video/`
+- YOLO 가중치: `yolo/best_openclose.pt`, `yolo/best_fullempty.pt`
+- TCN 예측 CSV 탐색:
+  - `4_predict/output/tcn_predictions/`
+  - `yolo/test_video/out_TCN/`
+- GT 라벨 CSV 탐색:
+  - `data/labels/`
+  - `Backup/old/test_data/test_in_model/test_csv/`
 
----
+출력:
 
-## 2. 입력 데이터
+- `4_predict/output/yolo_states/`
+- `4_predict/output/fused_frames/`
+- `4_predict/output/events/`
+- `4_predict/output/metrics/`
 
-- 학습된 모델 가중치
-- 테스트용 프레임 또는 텐서 데이터
-- GT 라벨 CSV
-- 객체 탐지 결과 또는 보조 입력 데이터
+## 실행 순서
 
----
+1. YOLO 상태 생성
 
-## 3. 출력 데이터
+```powershell
+python 4_predict/01_run_yolo_state_prediction.py
+```
 
-- 프레임 단위 예측 CSV
-- 이벤트 단위 결과 CSV
-- 성능 평가 결과
-- 후처리 결과 파일
+2. TCN + YOLO 결합
 
----
+```powershell
+python 4_predict/02_fuse_tcn_and_yolo.py
+```
 
-## 4. 처리 흐름
+3. 프레임 단위 성능 평가
 
-### 1) 모델 불러오기
-학습된 체크포인트를 로드합니다.
+```powershell
+python 4_predict/03_score_predictions.py
+```
 
-### 2) 프레임 또는 시계열 예측
-입력 데이터에 대해 예측을 수행합니다.
+## 입출력 형식
 
-### 3) 결과 병합
-행동 인식 결과와 객체 탐지 결과를 결합합니다.
+YOLO 상태 CSV:
 
-### 4) 이벤트 후처리
-프레임 단위 결과를 의미 있는 이벤트 단위로 변환합니다.
+- `video_name`, `frame_idx`, `frame_name`, `box_count`, `open_count`, `closed_count`, `full_count`, `empty_count`
 
-### 5) 평가
-GT와 비교하여 성능을 확인합니다.
+결합 프레임 CSV:
 
-## 7. 개선 권장 사항
+- `A`, `S`, `D`
+- YOLO 상태 컬럼
+- `tcn_label`, `yolo_A_like`, `yolo_S_like`, `yolo_D_like`, `fused_label_raw`, `fused_label`
 
-- 평가 함수 모듈화
-- 예측 결과 포맷 통일
-- 후처리 규칙 분리
-- 예시 입력/출력 CSV 첨부
+이벤트 CSV:
+
+- `frame_idx`, `flag_id`, `flag_key`
+
+성능 CSV:
+
+- `exact_frame_acc`
+- `micro_precision`, `micro_recall`, `micro_f1`, `micro_acc`
+- 클래스별 `A/S/D` precision, recall, f1, acc, support
+
+## 정리한 내용
+
+- `_lange`, `_flage` 오탈자 의존성 제거
+- 샘플 이름 정규화 로직 추가
+- 절대 경로 제거
+- 실험용 노트북 출력과 traceback 분리
+
+## 주의 사항
+
+- `03_score_predictions.py`는 프레임 단위 GT 라벨 CSV를 기준으로 평가합니다.
+- TCN 예측 CSV는 `A`, `S`, `D` 컬럼이 있어야 합니다.
+- 이 환경에서는 `python` 실행기 문제로 실제 런타임 검증은 하지 못했습니다.

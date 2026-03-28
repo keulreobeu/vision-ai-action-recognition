@@ -1,71 +1,78 @@
 # 2_preprocessing
 
-영상 및 이벤트 데이터를 모델 학습용 데이터로 변환하는 전처리 폴더입니다.
+실제 실행에 사용하는 전처리 코드를 정리한 폴더입니다. 기존 실험 노트북은 [`legacy`](G:\GitProjects\sessac_project\2_preprocessing\legacy)로 분리했고, 현재 기준 실행 파일은 `.py` 스크립트 3개입니다.
 
----
+## 실행 파일
 
-## 1. 역할
+- [`01_prepare_labels_and_landmarks.py`](G:\GitProjects\sessac_project\2_preprocessing\01_prepare_labels_and_landmarks.py)
+  - 프레임 폴더를 읽어 프레임 단위 라벨 CSV 생성
+  - MediaPipe Hands로 랜드마크 NPZ 생성
+- [`02_frames_and_landmarks_to_tensors.py`](G:\GitProjects\sessac_project\2_preprocessing\02_frames_and_landmarks_to_tensors.py)
+  - 프레임, 라벨 CSV, 랜드마크 NPZ를 묶어 윈도우 텐서 `.pt` 생성
+- [`03_xml_to_yolo_txt.py`](G:\GitProjects\sessac_project\2_preprocessing\03_xml_to_yolo_txt.py)
+  - Pascal VOC XML을 YOLO TXT로 변환
 
-이 폴더에서는 원본 영상 또는 프레임 데이터를 바탕으로
-모델 학습과 예측에 필요한 데이터를 생성합니다.
+## 입력 경로
 
-주요 기능은 다음과 같습니다.
+- 프레임 폴더
+  - `video/video`
+  - `video/missing1`
+  - `video/missing2`
+  - `video/idle`
+- 이벤트 CSV
+  - `data/out_csv/normal`
+  - `data/out_csv/missing1`
+  - `data/out_csv/missing2`
+- XML 어노테이션
+  - `yolo/label`
 
-- 프레임 정리
-- 이벤트 CSV 기반 라벨 생성
-- MediaPipe 손 랜드마크 NPZ추출
-- 텐서 데이터 생성
-- XML → YOLO txt 변환
+## 출력 경로
 
----
-
-## 2. 주요 입력 데이터
-
-- `video/` 폴더의 원본 영상 또는 프레임
-- 이벤트 플래그 CSV
-- XML 어노테이션 파일
-- 기타 전처리 대상 원본 데이터
-
----
-
-## 3. 주요 출력 데이터
-
-- 랜드마크 NPZ
 - 라벨 CSV
-- 텐서 데이터
-- YOLO 형식 txt 라벨
-- 전처리 중간 결과 파일
+  - `data/labels/<scenario>/<sample_name>_labels.csv`
+- 랜드마크 NPZ
+  - `data/landmarks/<scenario>/hands_<sample_name>.npz`
+- 텐서
+  - `data/tensors/<scenario>/<sample_name>_windows.pt`
+- YOLO TXT
+  - `yolo/labels_openclose/*.txt`
+  - `yolo/labels_fullempty/*.txt`
 
----
+## 실행 방법
 
-## 4. 전처리 흐름
+1. 라벨 CSV + 랜드마크 NPZ 생성
 
-### 1) 프레임 데이터 준비
-영상 또는 촬영 데이터를 프레임 단위로 정리합니다.
+```bash
+python 01_prepare_labels_and_landmarks.py
+```
 
-### 2) 이벤트 라벨 정리
-이벤트 CSV를 이용해 프레임 또는 구간 단위 라벨을 생성합니다.
+2. 윈도우 텐서 생성
 
-### 3) 손 랜드마크 추출
-MediaPipe를 이용해 손 위치 및 움직임 정보를 추출합니다.
+```bash
+python 02_frames_and_landmarks_to_tensors.py
+```
 
-### 4) 시계열 입력 생성
-랜드마크 또는 이미지 기반으로 시계열 모델 입력 텐서를 생성합니다.
+3. XML to YOLO TXT
 
-### 5) YOLO 학습용 라벨 생성
-어노테이션 파일을 객체 탐지 학습 형식으로 변환합니다.
+```bash
+python 03_xml_to_yolo_txt.py
+```
 
----
+## 동작 요약
 
-## 6. 예시 데이터 흐름
-- 원본 프레임 → 손 랜드마크 추출 → NPZ 저장
-- 이벤트 CSV → 프레임 단위 라벨 생성
-- 프레임 + 라벨 → 텐서 데이터 생성
-- XML → YOLO txt
+- 이벤트 CSV가 있으면 `A`, `S`, `D` 토글을 해석해 프레임 단위 라벨을 만듭니다.
+- 이벤트 CSV가 없으면 전 구간을 `0,0,0` 라벨로 채웁니다.
+- 랜드마크는 `hand_kps` 배열로 저장됩니다.
+- 텐서 출력에는 `X_img`, `X_hand`, `y_seq`, `y_last` 등이 포함됩니다.
 
-## 8. 개선 권장 사항
+## 레거시 노트북
 
-- 중복 함수 정리
-- 전처리 파라미터 문서화
-- 입출력 예시 추가
-- `.ipynb` 실험 코드와 최종 `.py` 실행 코드 분리
+- `legacy/legacy_01_landmark_npz.ipynb`
+- `legacy/legacy_02_image_to_tensor.ipynb`
+- `legacy/legacy_03_xml_to_yolo_txt.ipynb`
+
+## 필요 패키지
+
+```bash
+pip install opencv-python mediapipe numpy pandas pillow torch torchvision
+```

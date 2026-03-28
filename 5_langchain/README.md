@@ -1,51 +1,63 @@
 # 5_langchain
 
-예측 결과를 바탕으로 기록 문서와 로그를 자동 생성하는 폴더입니다.
+예측 결과를 기록 문서로 변환하는 자동 문서화 단계입니다. 기존 실험 노트북은 [`legacy`](G:\GitProjects\sessac_project\5_langchain\legacy)로 옮겼고, 현재는 실행용 스크립트 기준으로 정리했습니다.
 
----
+## 구성 파일
 
-## 1. 역할
+- [`langchain_paths.py`](G:\GitProjects\sessac_project\5_langchain\langchain_paths.py)
+- [`document_workflow.py`](G:\GitProjects\sessac_project\5_langchain\document_workflow.py)
+- [`01_generate_logs.py`](G:\GitProjects\sessac_project\5_langchain\01_generate_logs.py)
+- [`02_fill_template.py`](G:\GitProjects\sessac_project\5_langchain\02_fill_template.py)
 
-이 폴더에서는 모델 예측 결과를 사람이 바로 활용할 수 있는 문서 형태로 변환합니다.
+## 기본 입력 파일
 
-주요 기능:
-- 예측 CSV 해석
-- 이벤트 로그 정리
-- 이상 이벤트 생성
-- 템플릿 문서 자동 작성
-- 결과 파일 저장
+- 입력 XLSX: [`원료_투입_기록지_자동기록_샘플 (1).xlsx`](G:\GitProjects\sessac_project\5_langchain\원료_투입_기록지_자동기록_샘플%20(1).xlsx)
+- 템플릿 DOCX: [`원료_투입_기록지.docx`](G:\GitProjects\sessac_project\5_langchain\원료_투입_기록지.docx)
 
----
+필수 컬럼:
 
-## 2. 입력 데이터
+- `time_sec`
+- `flag_id`
 
-- 예측 결과 CSV
-- 이벤트 로그 CSV
-- 템플릿 문서(DOCX, XLSX 등)
-- API Key 또는 환경변수
+`flag_id`는 `1/A`, `2/S`, `3/D`를 허용합니다.
 
----
+## 출력 경로
 
-## 3. 출력 데이터
+모든 결과는 [`output`](G:\GitProjects\sessac_project\5_langchain\output) 아래에 저장됩니다.
 
-- 자동 생성 문서
-- 결과 요약 CSV
-- 이상 이벤트 기록 파일
-- 최종 보고용 산출물
+- `auto_log.csv`
+- `anomaly_log.csv`
+- `filled_record.docx`
 
----
+## 실행 순서
 
-## 4. 처리 흐름
+1. 자동 기록 / 이상 이벤트 생성
 
-### 1) 예측 결과 로드
-이전 단계에서 생성된 예측 CSV를 읽습니다.
+```powershell
+python 5_langchain/01_generate_logs.py
+```
 
-### 2) 이벤트 정리
-예측 결과를 문서에 넣기 적절한 구조로 정리합니다.
+2. 템플릿 문서 작성
 
-### 3) 템플릿 매핑
-문서 템플릿의 항목과 결과값을 연결합니다.
+```powershell
+python 5_langchain/02_fill_template.py
+```
 
-### 4) 문서 생성
-DOCX, XLSX, TXT 등의 결과 문서를 생성합니다.
+## LLM 사용 방식
 
+현재 코드는 Gemini를 선택적으로 사용합니다.
+
+- `GEMINI_API_KEY`가 설정되어 있고 `google-generativeai`를 import할 수 있으면 이상 이벤트 설명 생성에 Gemini를 사용합니다.
+- 키가 없거나 호출에 실패하면 중단하지 않고 규칙 기반 기본 문구로 대체합니다.
+
+## 정리한 내용
+
+- `C:\Users\user\Downloads\...` 절대 경로 제거
+- 노트북 셀 순서 의존성 제거
+- 2단계 스크립트로 분리
+- 출력 경로를 `output/` 아래로 통일
+
+## 주의 사항
+
+- 이 환경에서는 `python` 실행기 문제로 실제 런타임 검증은 하지 못했습니다.
+- 템플릿 DOCX 표 구조가 크게 바뀌면 테이블 인식 로직도 함께 조정해야 합니다.

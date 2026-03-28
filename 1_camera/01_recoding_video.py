@@ -48,7 +48,7 @@ BASE_DIR      = "video"
 #   missing1 : 1개 누락
 #   missing2 : 2개 누락
 #   no_action: 행동 없음
-SCENARIO_DIR  = "normal"  
+SCENARIO_DIR  = "normal" 
 
 # 파일 이름에 들어갈 이벤트/시나리오 약자 (원하는 문자열)
 #   → video_{SCENARIO_CODE}_{번호}
@@ -75,7 +75,11 @@ def init_camera():
     카메라(웹캠)를 초기화하고, 해상도/프레임/노출 설정을 적용한 뒤
     cv2.VideoCapture 객체를 반환한다.
     """
-    cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+    # Use a Windows-specific backend only on Windows; let OpenCV choose elsewhere.
+    if os.name == "nt" and hasattr(cv2, "CAP_DSHOW"):
+        cap = cv2.VideoCapture(CAMERA_INDEX, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(CAMERA_INDEX)
 
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open camera index {CAMERA_INDEX}")

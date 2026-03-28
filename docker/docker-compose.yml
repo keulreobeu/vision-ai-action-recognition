@@ -1,9 +1,20 @@
+version: "3.9"
+
 services:
-  doc-automation:
-    build: .
-    container_name: doc-automation
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    container_name: sessac_app
+    working_dir: /workspace
     volumes:
-      - ./input:/workspace/input
-      - ./output:/workspace/output
-      - ./templates:/workspace/templates
-    command: python app/main.py
+      - ../2_preprocessing:/workspace/2_preprocessing
+      - ../4_predict:/workspace/4_predict
+      - ../5_langchain:/workspace/5_langchain
+      - ../data:/workspace/data
+      - ../video:/workspace/video
+      - ../output:/workspace/output
+    ports:
+      - "8888:8888"
+    stdin_open: true
+    tty: true

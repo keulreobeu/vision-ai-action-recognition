@@ -1,97 +1,91 @@
 # 3_models
 
-행동 인식 모델과 객체 탐지 모델을 학습하는 폴더입니다.  
-이 폴더의 학습 코드는 **연산 자원 문제로 인해 로컬 환경이 아닌 Google Colab에서만 실행하는 것을 전제로 작성되었습니다.**
+이 폴더는 로컬 실행용이 아니라 Google Colab 실행을 전제로 정리한 모델 학습 단계입니다. 기존 실험 노트북은 [`legacy`](G:\GitProjects\sessac_project\3_models\legacy)로 분리했고, 현재 작업 기준 노트북은 3단계로 구성했습니다.
 
----
+## 현재 사용 노트북
 
-## 1. 역할
+- [`01_colab_exploration.ipynb`](G:\GitProjects\sessac_project\3_models\01_colab_exploration.ipynb)
+  - 최신 전처리 산출물 경로 확인
+  - 행동 인식 샘플 분포, fold 구성 확인
+  - YOLO 데이터셋 샘플 수 확인
+- [`02_model_comparison.ipynb`](G:\GitProjects\sessac_project\3_models\02_model_comparison.ipynb)
+  - 현재 후보 + legacy 모델 목록 비교
+  - YOLO 백본 후보 비교
+- [`03_final_model_training.ipynb`](G:\GitProjects\sessac_project\3_models\03_final_model_training.ipynb)
+  - 최종 행동 인식 모델 학습 및 저장
+  - 최종 YOLO 모델 학습 및 저장
 
-이 폴더는 전처리된 데이터를 이용해  
-행동 인식 모델과 객체 탐지 모델을 학습하는 단계를 담당합니다.
+## 입력 경로
 
-주요 대상 모델:
-- TCN 기반 행동 인식 모델
-- YOLO 기반 객체 탐지 모델
+행동 인식 최신 입력:
 
----
+- `data/labels/<scenario>/<sample_name>_labels.csv`
+- `data/landmarks/<scenario>/hands_<sample_name>.npz`
 
-## 2. 실행 환경
+행동 인식 레거시 호환 입력:
 
-이 폴더의 코드는 **Google Colab 전용 학습 코드**입니다.
+- `data/out_csv/<scenario>/*_lange.csv`
+- `data/out_npz/<scenario>/hands_*.npz`
 
-실행 환경:
-- Google Colab
-- Python 3.x
-- Colab GPU 런타임
-- Google Drive 연동
+YOLO 입력:
 
----
+- `yolo/imege`
+- `yolo/labels_openclose`
+- `yolo/labels_fullempty`
 
-## 3. 왜 Colab에서만 학습하는가
+## 공통 모듈
 
-본 프로젝트에서는 다음 이유로 학습을 Colab에서 수행합니다.
+- [`colab_paths.py`](G:\GitProjects\sessac_project\3_models\colab_paths.py)
+- [`behavior_modeling.py`](G:\GitProjects\sessac_project\3_models\behavior_modeling.py)
+- [`model_registry.py`](G:\GitProjects\sessac_project\3_models\model_registry.py)
+- [`yolo_workflow.py`](G:\GitProjects\sessac_project\3_models\yolo_workflow.py)
+- [`LEGACY_MODEL_OVERVIEW.md`](G:\GitProjects\sessac_project\3_models\LEGACY_MODEL_OVERVIEW.md)
 
-- GPU 자원 확보
-- 학습 시간 단축
-- 로컬 PC 자원 부담 감소
-- 실험 및 모델 저장 관리 용이성
+## 추천 실행 순서
 
-따라서 학습 단계는 개발 환경과 분리하여  
-**Google Colab 기반으로 독립 실행**하도록 구성했습니다.
+1. `01_colab_exploration.ipynb`
+2. `02_model_comparison.ipynb`
+3. `03_final_model_training.ipynb`
 
----
+## Colab 기본 설정
 
-## 4. 주요 기능
+기본 프로젝트 루트 예시:
 
-- 전처리 데이터 불러오기
-- 모델 정의
-- 학습 및 검증
-- 모델 가중치 저장
-- 성능 확인
-- 실험 결과 기록
+```python
+PROJECT_DIR = Path('/content/drive/MyDrive/sessac_project')
+```
 
----
+## 주요 산출물
 
-## 5. 입력 데이터
+기본 저장 위치:
 
-학습에 사용하는 입력 데이터는 주로 전처리 단계에서 생성됩니다.
+```text
+/content/drive/MyDrive/sessac_project_artifacts/
+```
 
-예:
-- 랜드마크 NPZ
-- 시계열 텐서 데이터
-- YOLO 형식 라벨 데이터
-- train / val / test split 정보
+비교 단계:
 
-일반적으로 이 데이터는 로컬 또는 프로젝트 폴더에서 정리한 뒤  
-Google Drive로 옮겨 Colab에서 불러와 사용합니다.
+- `model_comparison/behavior_model_catalog.csv`
+- `model_comparison/behavior_model_comparison.csv`
+- `model_comparison/yolo_model_comparison.csv`
 
----
+최종 학습 단계:
 
-## 6. 출력 데이터
+- `final_training/behavior/behavior_tcn_final.pt`
+- `final_training/behavior/behavior_tcn_history.csv`
+- `final_training/behavior/behavior_tcn_summary.json`
+- `final_training/yolo/runs/open_close_final/weights/best.pt`
+- `final_training/yolo/runs/full_empty_final/weights/best.pt`
+- `final_training/final_summary.json`
 
-학습 결과로 다음과 같은 파일이 생성될 수 있습니다.
+## 레거시 노트북
 
-- 학습된 모델 가중치 파일
-- 체크포인트
-- 학습 로그
-- 추론용 best model 파일
+- `legacy/legacy_00_colab_environment.ipynb`
+- `legacy/legacy_01_models.ipynb`
+- `legacy/legacy_02_yolo_bbox.ipynb`
 
-이 출력물 역시 보통 Google Drive에 저장한 뒤  
-이후 예측 단계(`4_predict`)에서 사용합니다.
+## Colab 패키지
 
----
-
-## 7. 기본 학습 흐름
-
-### 1) 전처리 결과 준비
-`2_preprocessing`에서 생성한 학습 데이터를 준비합니다.
-
-### 2) Google Drive 업로드
-학습에 필요한 데이터와 코드 파일을 Google Drive에 업로드합니다.
-
-### 3) Colab 런타임 설정
-Google Colab에서 GPU 런타임을 활성화합니다.
-
-### 4) Drive 마운트
-학습 데이터와 저장 경로를 사용하기 위해 Drive를 마운트합니다.
+```bash
+pip install ultralytics pyyaml
+```
