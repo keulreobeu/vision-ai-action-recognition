@@ -70,12 +70,7 @@ YOLO 상태 CSV:
 - `micro_precision`, `micro_recall`, `micro_f1`, `micro_acc`
 - 클래스별 `A/S/D` precision, recall, f1, acc, support
 
-## 정리한 내용
 
-- `_lange`, `_flage` 오탈자 의존성 제거
-- 샘플 이름 정규화 로직 추가
-- 절대 경로 제거
-- 실험용 노트북 출력과 traceback 분리
 
 ## 주의 사항
 
