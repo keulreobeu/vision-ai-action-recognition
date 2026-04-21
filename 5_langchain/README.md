@@ -50,14 +50,4 @@ python 5_langchain/02_fill_template.py
 - `GEMINI_API_KEY`가 설정되어 있고 `google-generativeai`를 import할 수 있으면 이상 이벤트 설명 생성에 Gemini를 사용합니다.
 - 키가 없거나 호출에 실패하면 중단하지 않고 규칙 기반 기본 문구로 대체합니다.
 
-## 정리한 내용
 
-- `C:\Users\user\Downloads\...` 절대 경로 제거
-- 노트북 셀 순서 의존성 제거
-- 2단계 스크립트로 분리
-- 출력 경로를 `output/` 아래로 통일
-
-## 주의 사항
-
-- 이 환경에서는 `python` 실행기 문제로 실제 런타임 검증은 하지 못했습니다.
-- 템플릿 DOCX 표 구조가 크게 바뀌면 테이블 인식 로직도 함께 조정해야 합니다.
