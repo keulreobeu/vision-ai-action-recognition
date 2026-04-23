@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""이벤트 입력 엑셀을 자동 기록/이상 기록 CSV로 변환하는 진입 스크립트."""
+
 from langchain_paths import ANOMALY_LOG_CSV_PATH, AUTO_LOG_CSV_PATH, INPUT_XLSX_PATH, ensure_output_dirs
 from document_workflow import (
     build_anomaly_log,
@@ -11,6 +13,7 @@ from document_workflow import (
 
 
 def main() -> None:
+    """이벤트를 구간화한 뒤 자동 기록표와 이상 기록표를 생성한다."""
     ensure_output_dirs()
     input_frame = load_input_events(INPUT_XLSX_PATH)
     events_df = build_event_segments(input_frame)

@@ -1,3 +1,5 @@
+"""Pascal VOC XML 어노테이션을 두 종류의 YOLO 라벨로 변환한다."""
+
 import argparse
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -26,6 +28,7 @@ FULL_EMPTY_CLASS_MAP = {
 
 
 def parse_args() -> argparse.Namespace:
+    """XML 입력 경로와 출력 경로를 파싱한다."""
     parser = argparse.ArgumentParser(
         description="Convert Pascal VOC XML annotations into two YOLO label sets.",
     )
@@ -51,6 +54,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def voc_to_yolo_bbox(image_size: tuple[int, int], box: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+    """VOC 박스를 YOLO 형식의 정규화 좌표로 변환한다."""
     width, height = image_size
     xmin, ymin, xmax, ymax = box
 
@@ -66,6 +70,7 @@ def convert_single_xml(
     open_close_root: Path,
     full_empty_root: Path,
 ) -> None:
+    """XML 한 장을 읽어 open/close, full/empty 라벨 파일을 동시에 만든다."""
     try:
         tree = ET.parse(xml_path)
     except ParseError as error:
@@ -124,6 +129,7 @@ def convert_single_xml(
 
 
 def main() -> None:
+    """XML 전체를 순회하며 YOLO TXT 파일을 생성한다."""
     args = parse_args()
     xml_files = sorted(args.xml_root.rglob("*.xml"))
     if not xml_files:

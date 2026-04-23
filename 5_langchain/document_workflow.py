@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""이벤트 기록 CSV와 문서 템플릿 생성을 담당하는 공통 로직."""
+
 import json
 import os
 from dataclasses import dataclass
@@ -14,11 +16,13 @@ SHORT_THRESHOLD_SECONDS = 5.0
 
 @dataclass(frozen=True)
 class GenerationContext:
+    """LLM 사용 가능 여부와 사유를 함께 담는 설정 객체."""
     llm_enabled: bool
     reason: str
 
 
 def load_input_events(input_path: Path) -> pd.DataFrame:
+    """입력 엑셀을 읽고 시간/이벤트 컬럼을 정규화한다."""
     frame = pd.read_excel(input_path, header=0)
     required_columns = {"time_sec", "flag_id"}
     missing_columns = required_columns - set(frame.columns)
@@ -33,6 +37,7 @@ def load_input_events(input_path: Path) -> pd.DataFrame:
 
 
 def normalize_flag(raw_value: object) -> str | None:
+    """원본 이벤트 값을 A/S/D 표준 플래그로 정규화한다."""
     if pd.isna(raw_value):
         return None
     text = str(raw_value).strip().upper()
@@ -46,10 +51,12 @@ def normalize_flag(raw_value: object) -> str | None:
 
 
 def format_time(value: pd.Timestamp) -> str:
+    """문서 출력용 시각 문자열을 만든다."""
     return value.strftime("%H:%M:%S")
 
 
 def build_event_segments(frame: pd.DataFrame) -> pd.DataFrame:
+    """프레임 단위 이벤트를 연속 구간 단위 이벤트로 합친다."""
     events: list[dict[str, object]] = []
     current_flag: str | None = None
     current_start: pd.Timestamp | None = None
@@ -62,6 +69,7 @@ def build_event_segments(frame: pd.DataFrame) -> pd.DataFrame:
 
         if current_value not in {"A", "S", "D"}:
             if current_flag is not None and current_start is not None and previous_time is not None:
+                # 유효한 A/S/D 구간이 끝난 시점에 이벤트를 확정한다.
                 events.append(
                     {
                         "idx": event_index,
@@ -111,6 +119,7 @@ def build_event_segments(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_auto_log(events_df: pd.DataFrame) -> tuple[pd.DataFrame, set[int], set[int], list[dict[str, object]]]:
+    """이벤트 구간을 자동 기록표 형식으로 변환하고 이상 후보도 함께 추린다."""
     short_event_indices = set(events_df.loc[events_df["duration_sec"] <= SHORT_THRESHOLD_SECONDS, "idx"].tolist())
     missing_process_pairs: list[dict[str, object]] = []
 
@@ -155,6 +164,7 @@ def build_auto_log(events_df: pd.DataFrame) -> tuple[pd.DataFrame, set[int], set
 
 
 def resolve_generation_context() -> GenerationContext:
+    """Gemini API 사용 가능 여부를 점검해 문장 생성 모드를 결정한다."""
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         return GenerationContext(llm_enabled=False, reason="GEMINI_API_KEY is not set")
@@ -168,6 +178,7 @@ def resolve_generation_context() -> GenerationContext:
 
 
 def generate_anomaly_text(item: dict[str, object], context: GenerationContext) -> tuple[str, str]:
+    """이상 이벤트 설명과 조치 문구를 생성한다."""
     if context.llm_enabled:
         try:
             import google.generativeai as genai
@@ -183,6 +194,7 @@ def generate_anomaly_text(item: dict[str, object], context: GenerationContext) -
         except Exception:
             pass
 
+    # LLM을 쓰지 못할 때도 문서 생성이 멈추지 않도록 기본 문구를 제공한다.
     if item["type"] == "short_duration":
         description = (
             f"{item['flag']} 동작이 {item['start_time_str']}부터 {item['end_time_str']}까지 "
@@ -196,6 +208,7 @@ def generate_anomaly_text(item: dict[str, object], context: GenerationContext) -
 
 
 def build_anomaly_prompt(event_json: str) -> str:
+    """LLM에 전달할 이상 이벤트 요약 프롬프트를 만든다."""
     return f"""
 당신은 제조 공정 기록 담당자입니다.
 다음 이상 이벤트 정보를 바탕으로 기록지에 들어갈 '상세 내용'과 '자동 조치'를 한국어 JSON으로 작성하세요.
@@ -217,6 +230,7 @@ def build_anomaly_log(
     missing_process_pairs: list[dict[str, object]],
     context: GenerationContext,
 ) -> pd.DataFrame:
+    """이상 후보를 문서용 이상 기록표 형식으로 변환한다."""
     anomaly_items: list[dict[str, object]] = []
 
     for _, event in events_df.iterrows():
@@ -269,6 +283,7 @@ def build_anomaly_log(
 
 
 def find_table_index_by_keyword(document: Document, keyword: str) -> int | None:
+    """키워드가 포함된 표를 찾아 템플릿 내 인덱스를 반환한다."""
     for table_index, table in enumerate(document.tables):
         for row in table.rows:
             row_text = " ".join(cell.text for cell in row.cells)
@@ -278,11 +293,13 @@ def find_table_index_by_keyword(document: Document, keyword: str) -> int | None:
 
 
 def _clear_table_rows(table, keep_header_rows: int = 1) -> None:
+    """헤더를 제외한 기존 행을 모두 지운다."""
     while len(table.rows) > keep_header_rows:
         table._tbl.remove(table.rows[-1]._tr)
 
 
 def append_rows_to_table(table, rows: list[dict[str, str]], columns: list[tuple[int, str]]) -> None:
+    """행 딕셔너리 목록을 워드 표에 순서대로 채운다."""
     _clear_table_rows(table, keep_header_rows=1)
     for row_data in rows:
         row = table.add_row().cells
@@ -296,6 +313,7 @@ def fill_template_document(
     anomaly_df: pd.DataFrame,
     output_path: Path,
 ) -> Path:
+    """자동 기록표와 이상 기록표를 DOCX 템플릿에 채워 저장한다."""
     document = Document(template_path)
 
     auto_table_index = find_table_index_by_keyword(document, "감지된 행동")

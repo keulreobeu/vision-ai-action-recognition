@@ -1,3 +1,5 @@
+"""행동 인식용 데이터 적재, 폴드 분할, 모델 정의를 모아 둔 모듈."""
+
 import copy
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +17,7 @@ LABEL_COLUMNS = ("A", "S", "D")
 
 @dataclass
 class SampleRecord:
+    """샘플 하나의 라벨/랜드마크 파일과 메타데이터를 담는다."""
     sample_name: str
     scenario: str
     label_path: Path
@@ -24,6 +27,7 @@ class SampleRecord:
 
 
 def _extract_metadata(scenario: str, sample_stem: str) -> tuple[str, int]:
+    """파일 이름 규칙에서 세트 구성을 위한 접두사와 번호를 추출한다."""
     if scenario == "normal":
         match = re.match(r"video_normal_(\d+)$", sample_stem)
         if not match:
@@ -50,6 +54,7 @@ def _extract_metadata(scenario: str, sample_stem: str) -> tuple[str, int]:
 
 
 def _load_label_array(label_path: Path) -> np.ndarray:
+    """CSV에서 A/S/D 라벨만 골라 float 배열로 읽는다."""
     frame = pd.read_csv(label_path)
     available_columns = {column.lower(): column for column in frame.columns}
     selected_columns = []
@@ -68,6 +73,7 @@ def discover_behavior_samples(
     legacy_landmarks_root: Path | None = None,
     scenarios: list[str] | None = None,
 ) -> list[SampleRecord]:
+    """학습 가능한 라벨/랜드마크 샘플 조합을 찾아 메타데이터를 만든다."""
     if scenarios is not None:
         selected_scenarios = scenarios
     else:
@@ -87,6 +93,7 @@ def discover_behavior_samples(
         landmark_dir = landmarks_root / scenario
         label_suffix = "_labels.csv"
 
+        # 정리된 폴더가 없으면 기존 레거시 산출물도 후순위로 탐색한다.
         if not label_dir.exists() and legacy_labels_root is not None:
             label_dir = legacy_labels_root / scenario
             landmark_dir = (legacy_landmarks_root or landmarks_root) / scenario
@@ -128,6 +135,7 @@ def discover_behavior_samples(
 
 
 def load_behavior_arrays(records: list[SampleRecord]) -> dict[str, dict[str, np.ndarray]]:
+    """샘플 메타데이터 목록을 실제 학습용 numpy 배열로 적재한다."""
     data: dict[str, dict[str, np.ndarray]] = {}
     for record in records:
         labels = _load_label_array(record.label_path)[: record.sequence_length]
@@ -142,6 +150,7 @@ def load_behavior_arrays(records: list[SampleRecord]) -> dict[str, dict[str, np.
 
 
 def build_group_folds(records: list[SampleRecord], num_folds: int = 4) -> list[dict[str, list[str]]]:
+    """같은 세트가 train/val에 동시에 섞이지 않도록 그룹 기반 폴드를 만든다."""
     grouped: dict[str, list[str]] = {}
     for record in records:
         grouped.setdefault(record.set_id, []).append(record.sample_name)
@@ -173,6 +182,7 @@ def build_group_folds(records: list[SampleRecord], num_folds: int = 4) -> list[d
 
 
 class LandmarkWindowDataset(Dataset):
+    """랜드마크 시퀀스를 슬라이딩 윈도우 단위로 잘라 제공하는 Dataset."""
     def __init__(
         self,
         data_dict: dict[str, dict[str, np.ndarray]],
@@ -210,6 +220,7 @@ class LandmarkWindowDataset(Dataset):
 
 
 class MLPTemporalPoolingClassifier(nn.Module):
+    """프레임별 특징을 MLP로 변환한 뒤 시간축 평균으로 분류하는 모델."""
     def __init__(self, input_dim: int, hidden_dim: int = 256, num_classes: int = 3, dropout: float = 0.3) -> None:
         super().__init__()
         self.feature = nn.Sequential(
@@ -228,6 +239,7 @@ class MLPTemporalPoolingClassifier(nn.Module):
 
 
 class MLPAvgPoolClassifier(nn.Module):
+    """입력 시퀀스를 평균 풀링한 뒤 얕은 MLP로 분류하는 기준 모델."""
     def __init__(self, input_dim: int, hidden_dim: int = 128, num_classes: int = 3, dropout: float = 0.5) -> None:
         super().__init__()
         self.dropout = nn.Dropout(dropout)
@@ -245,6 +257,7 @@ class MLPAvgPoolClassifier(nn.Module):
 
 
 class Chomp1d(nn.Module):
+    """TCN의 causal padding 뒤쪽을 잘라 길이를 맞추는 보조 모듈."""
     def __init__(self, chomp_size: int) -> None:
         super().__init__()
         self.chomp_size = chomp_size
@@ -256,6 +269,7 @@ class Chomp1d(nn.Module):
 
 
 class TemporalBlock(nn.Module):
+    """TCN의 기본 residual block."""
     def __init__(
         self,
         in_channels: int,
@@ -285,6 +299,7 @@ class TemporalBlock(nn.Module):
 
 
 class TCNClassifier(nn.Module):
+    """시간축 인과 합성곱으로 마지막 시점 라벨을 예측하는 모델."""
     def __init__(
         self,
         input_dim: int,
@@ -318,6 +333,7 @@ class TCNClassifier(nn.Module):
 
 
 class SimpleCNN1DClassifier(nn.Module):
+    """평균 풀링 기반 1D CNN 분류기."""
     def __init__(
         self,
         input_dim: int,
@@ -351,6 +367,7 @@ class SimpleCNN1DClassifier(nn.Module):
 
 
 class BiLSTMClassifier(nn.Module):
+    """양방향 LSTM으로 시퀀스 전체 문맥을 반영하는 분류기."""
     def __init__(
         self,
         input_dim: int,
@@ -385,6 +402,7 @@ def build_dataloaders(
     window_size: int = 15,
     step_size: int = 5,
 ) -> tuple[LandmarkWindowDataset, LandmarkWindowDataset, DataLoader, DataLoader]:
+    """폴드 정보에 맞는 train/val 데이터셋과 DataLoader를 만든다."""
     train_dataset = LandmarkWindowDataset(data_dict, fold_info["train_keys"], window_size, step_size)
     val_dataset = LandmarkWindowDataset(data_dict, fold_info["val_keys"], window_size, step_size)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -399,6 +417,7 @@ def train_one_epoch(
     criterion: nn.Module,
     device: torch.device,
 ) -> tuple[float, float]:
+    """학습 데이터로 한 epoch를 수행하고 손실/정확도를 반환한다."""
     model.train()
     total_loss = 0.0
     total_examples = 0
@@ -427,6 +446,7 @@ def eval_one_epoch(
     criterion: nn.Module,
     device: torch.device,
 ) -> tuple[float, float]:
+    """검증 데이터로 한 epoch를 평가한다."""
     model.eval()
     total_loss = 0.0
     total_examples = 0
@@ -456,6 +476,7 @@ def fit_model(
     learning_rate: float = 1e-3,
     patience: int = 10,
 ) -> tuple[nn.Module, list[dict[str, float]]]:
+    """조기 종료를 포함한 전체 학습 루프를 실행한다."""
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     history: list[dict[str, float]] = []
@@ -491,6 +512,7 @@ def fit_model(
 
 
 def summarize_history(history: list[dict[str, float]]) -> dict[str, float]:
+    """학습 이력에서 가장 좋은 검증 손실 기준 결과를 요약한다."""
     best_row = min(history, key=lambda row: row["val_loss"])
     return {
         "best_epoch": best_row["epoch"],

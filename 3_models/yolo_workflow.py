@@ -1,3 +1,5 @@
+"""YOLO 데이터셋 분할과 학습 실행을 위한 보조 함수 모음."""
+
 import random
 import shutil
 from pathlib import Path
@@ -10,6 +12,7 @@ IMG_SUFFIXES = (".jpg", ".jpeg", ".png")
 
 
 def discover_yolo_bases(image_root: Path, label_root: Path) -> list[str]:
+    """이미지와 라벨이 모두 존재하는 샘플 기준 이름만 추린다."""
     valid_bases = []
     for image_path in sorted(image_root.iterdir()):
         if not image_path.is_file() or image_path.suffix.lower() not in IMG_SUFFIXES:
@@ -27,6 +30,7 @@ def prepare_yolo_dataset(
     val_ratio: float = 0.2,
     seed: int = 42,
 ) -> dict[str, Path | int]:
+    """원본 이미지/라벨을 train/val 구조로 복사해 YOLO 학습셋을 만든다."""
     random.seed(seed)
     valid_bases = discover_yolo_bases(image_root, label_root)
     random.shuffle(valid_bases)
@@ -35,6 +39,7 @@ def prepare_yolo_dataset(
     val_bases = set(valid_bases[:val_count])
     train_bases = set(valid_bases[val_count:])
 
+    # Ultralytics 기본 폴더 구조를 미리 만들어 둔다.
     for split in ("train", "val"):
         (output_root / "images" / split).mkdir(parents=True, exist_ok=True)
         (output_root / "labels" / split).mkdir(parents=True, exist_ok=True)
@@ -55,6 +60,7 @@ def prepare_yolo_dataset(
 
 
 def write_yolo_yaml(dataset_root: Path, yaml_path: Path, class_names: list[str]) -> Path:
+    """Ultralytics가 읽을 수 있는 dataset YAML 파일을 생성한다."""
     content = {
         "path": str(dataset_root),
         "train": "images/train",
@@ -76,6 +82,7 @@ def train_yolo_model(
     batch_size: int = 16,
     device: int | str = 0,
 ) -> dict[str, str | float]:
+    """지정한 설정으로 YOLO 학습을 실행하고 핵심 결과만 반환한다."""
     model = YOLO(model_name)
     results = model.train(
         data=str(yaml_path),

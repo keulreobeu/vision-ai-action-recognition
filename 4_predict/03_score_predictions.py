@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""GT 라벨과 예측 결과를 비교해 프레임 단위 성능 지표를 계산한다."""
+
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +18,7 @@ from predict_workflow import (
 
 
 def load_prediction_frame_csv(csv_path: Path) -> pd.DataFrame:
+    """예측 CSV를 표준 A/S/D 다중라벨 형태로 정규화한다."""
     df = pd.read_csv(csv_path)
     if all(column in df.columns for column in LABEL_COLUMNS):
         label_df = df[LABEL_COLUMNS].copy()
@@ -33,6 +36,7 @@ def evaluate_predictions(
     pred_root: Path = FUSED_FRAME_OUTPUT_ROOT,
     metric_output_root: Path = METRIC_OUTPUT_ROOT,
 ) -> pd.DataFrame:
+    """매칭되는 GT/예측 파일 쌍을 평가하고 요약 CSV를 저장한다."""
     ensure_output_dirs()
     gt_root_paths = gt_root_paths or DEFAULT_GT_LABEL_ROOTS
 
@@ -50,6 +54,7 @@ def evaluate_predictions(
         if n_rows == 0:
             continue
 
+        # 길이가 다를 수 있으므로 공통 길이까지만 비교한다.
         y_true = gt_df.iloc[:n_rows].to_numpy(dtype=int)
         y_pred = pred_df.iloc[:n_rows].to_numpy(dtype=int)
         overall, per_class = compute_multilabel_metrics(y_true, y_pred)

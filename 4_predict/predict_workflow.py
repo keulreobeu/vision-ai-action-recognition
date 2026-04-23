@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""TCN 예측과 YOLO 박스 상태를 정렬하고 평가하는 공통 로직 모음."""
+
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,12 +17,14 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
 
 @dataclass(frozen=True)
 class SamplePair:
+    """같은 샘플에 대응하는 TCN/YOLO CSV 경로 쌍."""
     sample_id: str
     tcn_path: Path
     yolo_path: Path
 
 
 def normalize_sample_id(raw_name: str) -> str:
+    """여러 단계에서 달라진 파일 접미사를 제거해 공통 샘플 ID로 맞춘다."""
     text = Path(raw_name).stem
     for suffix in (
         "_yolo_states",
@@ -42,6 +46,7 @@ def normalize_sample_id(raw_name: str) -> str:
 
 
 def list_frame_dirs(root: Path) -> list[Path]:
+    """예측 대상 프레임 폴더만 골라 반환한다."""
     if not root.exists():
         return []
     ignored = {"out_yolo", "out_TCN", "out_pred"}
@@ -53,12 +58,14 @@ def list_frame_dirs(root: Path) -> list[Path]:
 
 
 def list_frame_images(frames_dir: Path) -> list[Path]:
+    """프레임 폴더 안의 이미지 파일을 정렬해서 반환한다."""
     return sorted(
         path for path in frames_dir.iterdir() if path.suffix.lower() in IMAGE_SUFFIXES
     )
 
 
 def discover_csvs(root_paths: Iterable[Path], suffix: str) -> dict[str, Path]:
+    """여러 루트에서 접미사에 맞는 CSV를 찾아 샘플 ID 기준으로 묶는다."""
     discovered: dict[str, Path] = {}
     for root_path in root_paths:
         if not root_path.exists():
@@ -73,6 +80,7 @@ def discover_tcn_yolo_pairs(
     tcn_root_paths: Iterable[Path],
     yolo_root_paths: Iterable[Path],
 ) -> list[SamplePair]:
+    """같은 샘플을 가리키는 TCN 예측 CSV와 YOLO 상태 CSV를 짝지어 찾는다."""
     tcn_csvs = discover_csvs(tcn_root_paths, ".csv")
     yolo_csvs = discover_csvs(yolo_root_paths, ".csv")
     sample_ids = sorted(set(tcn_csvs) & set(yolo_csvs))
@@ -93,6 +101,7 @@ def discover_tcn_yolo_pairs(
 
 
 def load_label_frame_csv(csv_path: Path) -> pd.DataFrame:
+    """A/S/D 라벨 컬럼만 남긴 표준 프레임 라벨 DataFrame을 만든다."""
     df = pd.read_csv(csv_path)
     missing = [column for column in LABEL_COLUMNS if column not in df.columns]
     if missing:
@@ -103,6 +112,7 @@ def load_label_frame_csv(csv_path: Path) -> pd.DataFrame:
 
 
 def derive_tcn_label(row: pd.Series) -> str:
+    """멀티라벨 행을 단일 대표 라벨로 축약한다."""
     labels = [label for label in LABEL_COLUMNS if int(row.get(label, 0)) == 1]
     if len(labels) == 1:
         return labels[0]
@@ -110,6 +120,7 @@ def derive_tcn_label(row: pd.Series) -> str:
 
 
 def build_events_from_frame_labels(labels: list[str]) -> pd.DataFrame:
+    """프레임 라벨 시퀀스를 이벤트 시작 프레임 목록으로 변환한다."""
     rows: list[dict[str, object]] = []
     previous = "idle"
     flag_id = 0
@@ -130,6 +141,7 @@ def build_events_from_frame_labels(labels: list[str]) -> pd.DataFrame:
 
 
 def fuse_tcn_with_yolo(tcn_df: pd.DataFrame, yolo_df: pd.DataFrame) -> pd.DataFrame:
+    """TCN 라벨과 YOLO 상태 특징을 결합해 최종 프레임 라벨을 계산한다."""
     n_rows = min(len(tcn_df), len(yolo_df))
     fused = pd.concat(
         [
@@ -145,6 +157,7 @@ def fuse_tcn_with_yolo(tcn_df: pd.DataFrame, yolo_df: pd.DataFrame) -> pd.DataFr
     open_count = fused.get("open_count", pd.Series([0] * n_rows))
     closed_count = fused.get("closed_count", pd.Series([0] * n_rows))
 
+    # 박스 개수의 증감을 이용해 상태 전환 신호를 추정한다.
     diff_empty = empty_count.diff().fillna(0)
     diff_full = full_count.diff().fillna(0)
 
@@ -153,6 +166,7 @@ def fuse_tcn_with_yolo(tcn_df: pd.DataFrame, yolo_df: pd.DataFrame) -> pd.DataFr
     fused["yolo_D_like"] = (full_count > 0) | ((diff_full > 0) & (diff_empty <= 0))
 
     fused["fused_label_raw"] = fused["tcn_label"]
+    # TCN을 주 신호로 두고 YOLO를 보조 신호로 더해 최종 라벨을 고른다.
     for index, row in fused.iterrows():
         scores = {
             "A": 2.0 * float(row["tcn_label"] == "A") + 1.0 * float(row["yolo_A_like"]),
@@ -162,6 +176,7 @@ def fuse_tcn_with_yolo(tcn_df: pd.DataFrame, yolo_df: pd.DataFrame) -> pd.DataFr
         }
         fused.at[index, "fused_label_raw"] = max(scores, key=scores.get)
 
+    # 너무 짧은 구간은 노이즈로 보고 idle로 평활화한다.
     smoothed_labels = fused["fused_label_raw"].tolist()
     segment_start = 0
     for index in range(1, len(smoothed_labels) + 1):
@@ -177,12 +192,14 @@ def fuse_tcn_with_yolo(tcn_df: pd.DataFrame, yolo_df: pd.DataFrame) -> pd.DataFr
 
 
 def exact_frame_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """프레임 단위 완전 일치 정확도를 계산한다."""
     if len(y_true) == 0:
         return 0.0
     return float((y_true == y_pred).all(axis=1).mean())
 
 
 def compute_multilabel_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
+    """클래스별 및 마이크로 평균 다중라벨 지표를 계산한다."""
     eps = 1e-12
     per_class: dict[str, dict[str, float]] = {}
     total_tp = total_fp = total_fn = total_tn = 0

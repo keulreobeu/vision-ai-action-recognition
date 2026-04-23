@@ -1,3 +1,5 @@
+"""Google Colab 환경에서 프로젝트 경로를 해석하기 위한 유틸리티."""
+
 from pathlib import Path
 
 
@@ -6,6 +8,7 @@ DEFAULT_OUTPUT_DIR = Path("/content/drive/MyDrive/sessac_project_artifacts")
 
 
 def resolve_project_paths(project_dir: str | Path) -> dict[str, Path]:
+    """Colab에서 쓰던 주요 데이터 경로를 한 번에 계산한다."""
     root = Path(project_dir).expanduser().resolve()
     return {
         "project_root": root,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""TCN 프레임 라벨과 YOLO 상태 정보를 결합해 최종 이벤트를 만든다."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -26,6 +28,7 @@ def run_fusion(
     fused_output_root: Path = FUSED_FRAME_OUTPUT_ROOT,
     event_output_root: Path = EVENT_OUTPUT_ROOT,
 ) -> None:
+    """짝이 맞는 TCN/YOLO CSV를 찾아 융합 결과와 이벤트 CSV를 저장한다."""
     ensure_output_dirs()
     tcn_root_paths = tcn_root_paths or DEFAULT_TCN_PRED_ROOTS
     yolo_root_paths = yolo_root_paths or [YOLO_STATE_OUTPUT_ROOT, YOLO_TEST_ROOT / "out_yolo"]

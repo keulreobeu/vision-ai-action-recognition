@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""프레임 폴더를 순회하며 YOLO 박스 상태 예측 CSV를 생성한다."""
+
 from pathlib import Path
 
 import cv2
@@ -17,6 +19,7 @@ from predict_workflow import list_frame_dirs, list_frame_images, normalize_sampl
 
 
 def count_classes(result, names: list[str]) -> dict[str, int]:
+    """YOLO 추론 결과에서 클래스별 검출 개수를 센다."""
     counts = {name: 0 for name in names}
     if result.boxes is None or result.boxes.cls is None:
         return counts
@@ -34,6 +37,7 @@ def run_yolo_state_prediction(
     fullempty_model_path: Path = YOLO_FULLEMPTY_MODEL,
     output_root: Path = YOLO_STATE_OUTPUT_ROOT,
 ) -> None:
+    """open/close 모델과 full/empty 모델 결과를 프레임 단위로 합친다."""
     ensure_output_dirs()
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -62,6 +66,7 @@ def run_yolo_state_prediction(
 
             openclose_counts = count_classes(oc_result, ["open_box", "closed_box"])
             fullempty_counts = count_classes(fe_result, ["full_box", "empty_box"])
+            # 두 모델의 결과를 합쳐 프레임별 상태 요약치를 만든다.
             box_count = (
                 openclose_counts["open_box"]
                 + openclose_counts["closed_box"]

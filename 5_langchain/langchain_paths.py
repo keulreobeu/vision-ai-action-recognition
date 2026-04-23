@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""문서 생성 단계에서 사용하는 입력/출력 파일 경로 모음."""
+
 from pathlib import Path
 
 
@@ -16,4 +18,5 @@ OUTPUT_DOCX_PATH = OUTPUT_ROOT / "filled_record.docx"
 
 
 def ensure_output_dirs() -> None:
+    """문서 생성 산출물을 저장할 폴더를 준비한다."""
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)

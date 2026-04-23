@@ -1,3 +1,5 @@
+"""카메라 프레임 저장과 A/S/D 이벤트 기록을 함께 수행하는 수집 스크립트."""
+
 import cv2
 import os
 import time
@@ -142,6 +144,7 @@ def make_session_paths():
     return frames_dir, event_path
 
 
+# 프레임 파일 저장은 녹화 중 매 루프마다 호출된다.
 def save_frame(frames_dir, frame_idx, frame):
     """
     프레임을 이미지 파일로 저장한다.
@@ -267,6 +270,7 @@ def draw_overlay(frame, recording, record_start_time,
 # 3. 녹화 제어 함수들
 # =========================
 
+# 녹화 시작/종료 처리 로직을 분리해 메인 루프를 단순하게 유지한다.
 def start_recording():
     """
     한 번의 녹화(세션)를 시작하기 위한 준비를 한다.
@@ -329,6 +333,7 @@ def main():
 
     print("[INFO] Press SPACE to start/stop recording. A/S/D for flags. Q or ESC to quit.")
 
+    # 키 입력, 오버레이 표시, 프레임 저장을 한 루프에서 처리한다.
     while True:
         ret, frame = cap.read()
         if not ret:

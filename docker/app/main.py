@@ -1,6 +1,9 @@
+"""도커 환경이 정상 동작하는지 간단히 확인하는 테스트 스크립트."""
+
 from pathlib import Path
 
 def main():
+    """입력 파일 목록을 읽어 결과 텍스트 파일로 남긴다."""
     input_dir = Path("/workspace/input")
     output_dir = Path("/workspace/output")
 

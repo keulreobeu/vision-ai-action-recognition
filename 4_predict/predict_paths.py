@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""예측 단계에서 재사용하는 모델/입출력 경로 모음."""
+
 from pathlib import Path
 
 
@@ -34,6 +36,7 @@ DEFAULT_GT_EVENT_ROOTS = [
 
 
 def ensure_output_dirs() -> None:
+    """예측 결과를 저장할 기본 폴더들을 미리 생성한다."""
     for path in (
         OUTPUT_ROOT,
         YOLO_STATE_OUTPUT_ROOT,

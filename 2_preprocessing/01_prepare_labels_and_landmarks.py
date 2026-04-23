@@ -1,3 +1,5 @@
+"""프레임 폴더에서 프레임 라벨 CSV와 손 랜드마크 NPZ를 생성한다."""
+
 import argparse
 from pathlib import Path
 
@@ -23,6 +25,7 @@ MAX_HANDS = 2
 
 
 def parse_args() -> argparse.Namespace:
+    """CLI 실행 옵션을 파싱한다."""
     parser = argparse.ArgumentParser(
         description="Generate per-frame labels and MediaPipe hand landmarks from frame folders.",
     )
@@ -53,6 +56,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def list_frame_files(frames_dir: Path) -> list[Path]:
+    """프레임 폴더 안의 이미지 파일만 정렬해서 반환한다."""
     return sorted(
         path
         for path in frames_dir.iterdir()
@@ -61,6 +65,7 @@ def list_frame_files(frames_dir: Path) -> list[Path]:
 
 
 def build_interval_labels(frame_count: int, event_csv_path: Path | None) -> np.ndarray:
+    """이벤트 토글 CSV를 프레임 단위 A/S/D 라벨 행렬로 변환한다."""
     labels = np.zeros((frame_count, len(ACTION_KEYS)), dtype=np.float32)
     if event_csv_path is None:
         return labels
@@ -80,6 +85,7 @@ def build_interval_labels(frame_count: int, event_csv_path: Path | None) -> np.n
             continue
 
         frame_index = max(0, min(frame_index, frame_count))
+        # 이벤트가 발생하기 전까지는 직전 상태를 그대로 유지한다.
         labels[last_frame_index:frame_index, :] = state
         state[ACTION_INDEX[key]] = 1.0 - state[ACTION_INDEX[key]]
         last_frame_index = frame_index
@@ -94,6 +100,7 @@ def build_interval_labels(frame_count: int, event_csv_path: Path | None) -> np.n
 
 
 def save_label_csv(sample_name: str, scenario: str, frame_count: int, labels: np.ndarray) -> Path:
+    """프레임별 라벨을 CSV 파일로 저장한다."""
     output_dir = get_label_root(scenario)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,6 +112,7 @@ def save_label_csv(sample_name: str, scenario: str, frame_count: int, labels: np
 
 
 def extract_hand_landmarks(frame_paths: list[Path], output_path: Path, max_hands: int) -> Path:
+    """MediaPipe Hands로 프레임별 손 랜드마크를 추출해 NPZ로 저장한다."""
     hands_solution = mp.solutions.hands.Hands(
         static_image_mode=True,
         max_num_hands=max_hands,
@@ -122,6 +130,7 @@ def extract_hand_landmarks(frame_paths: list[Path], output_path: Path, max_hands
             image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
             result = hands_solution.process(image_rgb)
 
+            # 손이 검출되지 않은 프레임도 동일한 텐서 형태를 유지한다.
             feature = np.zeros((max_hands, 21, 3), dtype=np.float32)
             if result.multi_hand_landmarks:
                 for hand_index, hand_landmarks in enumerate(result.multi_hand_landmarks[:max_hands]):
@@ -146,6 +155,7 @@ def process_sample(
     skip_labels: bool,
     skip_landmarks: bool,
 ) -> None:
+    """샘플 하나를 기준으로 라벨 CSV와 랜드마크 NPZ를 생성한다."""
     sample_name = sample_dir.name
     frame_paths = list_frame_files(sample_dir)
     if not frame_paths:
@@ -166,6 +176,7 @@ def process_sample(
 
 
 def main() -> None:
+    """요청한 시나리오 전체를 순회하며 전처리를 실행한다."""
     args = parse_args()
     sample_dirs = find_sample_dirs(args.scenarios)
 

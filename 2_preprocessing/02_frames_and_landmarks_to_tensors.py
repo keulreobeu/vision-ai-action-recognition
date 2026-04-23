@@ -1,3 +1,5 @@
+"""프레임, 손 랜드마크, 라벨을 윈도우 단위 텐서 묶음으로 저장한다."""
+
 import argparse
 from pathlib import Path
 
@@ -20,6 +22,7 @@ LABEL_COLUMNS = ("A", "S", "D")
 
 
 def parse_args() -> argparse.Namespace:
+    """윈도우 크기 등 텐서화 옵션을 파싱한다."""
     parser = argparse.ArgumentParser(
         description="Convert frames, landmark NPZ files, and per-frame labels into window tensors.",
     )
@@ -37,6 +40,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def list_frame_files(frames_dir: Path) -> list[Path]:
+    """프레임 폴더의 이미지 파일 목록을 정렬해 반환한다."""
     return sorted(
         path
         for path in frames_dir.iterdir()
@@ -45,6 +49,7 @@ def list_frame_files(frames_dir: Path) -> list[Path]:
 
 
 def build_window_indices(frame_count: int, window: int, step: int) -> list[tuple[int, int]]:
+    """슬라이딩 윈도우 시작/종료 인덱스를 계산한다."""
     return [
         (start, start + window)
         for start in range(0, frame_count - window + 1, step)
@@ -52,6 +57,7 @@ def build_window_indices(frame_count: int, window: int, step: int) -> list[tuple
 
 
 def load_label_matrix(label_csv_path: Path, frame_count: int) -> np.ndarray:
+    """CSV 라벨을 고정 길이 프레임 라벨 행렬로 읽어 온다."""
     label_frame = pd.read_csv(label_csv_path)
     labels = np.zeros((frame_count, len(LABEL_COLUMNS)), dtype=np.float32)
 
@@ -69,6 +75,7 @@ def load_label_matrix(label_csv_path: Path, frame_count: int) -> np.ndarray:
 
 
 def load_frame_tensor(frame_paths: list[Path], transform: transforms.Compose) -> torch.Tensor:
+    """이미지 프레임 리스트를 모델 입력용 텐서로 쌓는다."""
     images = []
     for frame_path in frame_paths:
         image = Image.open(frame_path).convert("RGB")
@@ -83,6 +90,7 @@ def process_sample(
     step: int,
     image_size: int,
 ) -> None:
+    """샘플 하나를 윈도우 텐서 파일로 변환한다."""
     sample_name = sample_dir.name
     frame_paths = list_frame_files(sample_dir)
     if not frame_paths:
@@ -100,6 +108,7 @@ def process_sample(
 
     landmark_data = np.load(landmark_path)
     hand_keypoints = landmark_data["hand_kps"]
+    # 프레임 수와 랜드마크 길이가 다르면 공통 구간만 사용한다.
     frame_count = min(len(frame_paths), hand_keypoints.shape[0])
     frame_paths = frame_paths[:frame_count]
     hand_keypoints = hand_keypoints[:frame_count]
@@ -153,6 +162,7 @@ def process_sample(
 
 
 def main() -> None:
+    """요청한 시나리오 전체를 텐서화한다."""
     args = parse_args()
     sample_dirs = find_sample_dirs(args.scenarios)
 

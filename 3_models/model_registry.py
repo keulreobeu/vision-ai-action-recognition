@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""행동 인식 모델 후보와 레거시 실험 정보를 정리한 레지스트리."""
+
 from dataclasses import dataclass
 from typing import Callable
 
@@ -14,6 +16,7 @@ from behavior_modeling import (
 
 @dataclass(frozen=True)
 class LegacyBehaviorModelSpec:
+    """레거시 노트북에서 가져온 모델 비교 정보를 담는 구조체."""
     key: str
     display_name: str
     family: str
@@ -25,6 +28,7 @@ class LegacyBehaviorModelSpec:
 
 
 def get_current_behavior_model_builders() -> dict[str, Callable[[int, int], object]]:
+    """현재 파이썬 워크플로우에서 바로 재사용하는 모델 빌더를 반환한다."""
     return {
         "mlp_pool": lambda input_dim, num_classes: MLPTemporalPoolingClassifier(
             input_dim=input_dim,
@@ -39,6 +43,7 @@ def get_current_behavior_model_builders() -> dict[str, Callable[[int, int], obje
 
 
 def get_legacy_behavior_model_specs() -> list[LegacyBehaviorModelSpec]:
+    """과거 노트북 실험 결과를 코드에서 참조할 수 있게 정리한다."""
     return [
         LegacyBehaviorModelSpec(
             key="legacy_tcn_v1",
