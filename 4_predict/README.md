@@ -76,4 +76,3 @@ YOLO 상태 CSV:
 
 - `03_score_predictions.py`는 프레임 단위 GT 라벨 CSV를 기준으로 평가합니다.
 - TCN 예측 CSV는 `A`, `S`, `D` 컬럼이 있어야 합니다.
-- 이 환경에서는 `python` 실행기 문제로 실제 런타임 검증은 하지 못했습니다.
